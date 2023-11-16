@@ -32,7 +32,7 @@ void lcd_set_cursor(uint8_t row, uint8_t column);
 void lcd_clear(void);
 void lcd_backlight(uint8_t state);
 uint16_t ReadPulseSensor(void) {
-   //ADC_ChannelConfTypeDef sConfig = {0}; //is this necessary?
+   ADC_ChannelConfTypeDef sConfig = {0}; //is this necessary?
    ADC_HandleTypeDef hadc1;
    HAL_ADC_Start(&hadc1);
    HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
