@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "stdlib.h"
+
 #define I2C_ADDR 0x27 // I2C address of the PCF8574
 #define RS_BIT 0 // Register select bit
 #define EN_BIT 2 // Enable bit
@@ -41,7 +42,6 @@ uint16_t ReadPulseSensor(void) {
 //main function
 int main(void)
 {
-
   HAL_Init();
   SystemClock_Config();
 
