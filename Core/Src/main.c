@@ -38,7 +38,7 @@ uint16_t ReadPulseSensor(void) {
    HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
    return HAL_ADC_GetValue(&hadc1);
 }
-
+//main function
 int main(void)
 {
 
