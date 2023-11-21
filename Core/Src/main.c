@@ -1,147 +1,151 @@
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2023 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include <stdint.h>
-#include <stdio.h>
-#include <string.h>
 
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "mae.h"
+
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
-
-I2C_HandleTypeDef hi2c1;
+uint16_t adcValue = 0;
 
 UART_HandleTypeDef huart2;
 
+/* USER CODE BEGIN PV */
+
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
-static void MX_I2C1_Init(void);
 static void MX_ADC1_Init(void);
+int convertToHeartRate(uint16_t adcValue);
+/* USER CODE BEGIN PFP */
 
-extern I2C_HandleTypeDef hi2c1;  // change your handler here accordingly
+/* USER CODE END PFP */
 
-// Define global variable for backlight state
-uint8_t backlight_state = 1;
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
 
-void lcd_write_nibble(uint8_t nibble, uint8_t rs) {
-  uint8_t data = nibble << D4_BIT;
-  data |= rs << RS_BIT;
-  data |= backlight_state << BL_BIT; // Include backlight state in data
-  data |= 1 << EN_BIT;
-  HAL_I2C_Master_Transmit(&hi2c1, I2C_ADDR << 1, &data, 1, 100);
-  HAL_Delay(1);
-  data &= ~(1 << EN_BIT);
-  HAL_I2C_Master_Transmit(&hi2c1, I2C_ADDR << 1, &data, 1, 100);
-}
+/* USER CODE END 0 */
 
-void lcd_send_cmd(uint8_t cmd) {
-  uint8_t upper_nibble = cmd >> 4;
-  uint8_t lower_nibble = cmd & 0x0F;
-  lcd_write_nibble(upper_nibble, 0);
-  lcd_write_nibble(lower_nibble, 0);
-  if (cmd == 0x01 || cmd == 0x02) {
-    HAL_Delay(2);
-  }
-}
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
 
-void lcd_send_data(uint8_t data) {
-  uint8_t upper_nibble = data >> 4;
-  uint8_t lower_nibble = data & 0x0F;
-  lcd_write_nibble(upper_nibble, 1);
-  lcd_write_nibble(lower_nibble, 1);
-}
-
-void lcd_init() {
-  HAL_Delay(50);
-  lcd_write_nibble(0x03, 0);
-  HAL_Delay(5);
-  lcd_write_nibble(0x03, 0);
-  HAL_Delay(1);
-  lcd_write_nibble(0x03, 0);
-  HAL_Delay(1);
-  lcd_write_nibble(0x02, 0);
-  lcd_send_cmd(0x28);
-  lcd_send_cmd(0x0C);
-  lcd_send_cmd(0x06);
-  lcd_send_cmd(0x01);
-  HAL_Delay(2);
-}
-
-void lcd_write_string(char *str) {
-  while (*str) {
-    lcd_send_data(*str++);
-  }
-}
-
-void lcd_set_cursor(uint8_t row, uint8_t column) {
-    uint8_t address;
-    switch (row) {
-        case 0:
-            address = 0x00;
-            break;
-        case 1:
-            address = 0x40;
-            break;
-        default:
-            address = 0x00;
-    }
-    address += column;
-    lcd_send_cmd(0x80 | address);
-}
-
-void lcd_clear(void) {
-	lcd_send_cmd(0x01);
-    HAL_Delay(2);
-}
-
-void lcd_backlight(uint8_t state) {
-  if (state) {
-    backlight_state = 1;
-  } else {
-    backlight_state = 0;
-  }
-}
-int map(int value, int fromLow, int fromHigh, int toLow, int toHigh)
-{
-  return (value - fromLow) * (toHigh - toLow) / (fromHigh - fromLow) + toLow;
-}
 int main(void)
 {
+  /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
   SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   MX_ADC1_Init();
-  MX_I2C1_Init();
-  lcd_init();
-  lcd_backlight(1);
-  lcd_clear();
+  /* USER CODE BEGIN 2 */
+  // Lcd_PortType ports[] = { D4_GPIO_Port, D5_GPIO_Port, D6_GPIO_Port, D7_GPIO_Port };
+  Lcd_PortType ports[] = { GPIOC, GPIOB, GPIOA, GPIOA };
+  // Lcd_PinType pins[] = {D4_Pin, D5_Pin, D6_Pin, D7_Pin};
+  Lcd_PinType pins[] = {GPIO_PIN_7, GPIO_PIN_6, GPIO_PIN_7, GPIO_PIN_6};
+  Lcd_HandleTypeDef lcd;
+  // Lcd_create(ports, pins, RS_GPIO_Port, RS_Pin, EN_GPIO_Port, EN_Pin, LCD_4_BIT_MODE);
+  lcd = Lcd_create(ports, pins, GPIOB, GPIO_PIN_5, GPIOB, GPIO_PIN_4, LCD_4_BIT_MODE);
 
-  int adc_value, pulse_rate;
-  char pulse_rate_str[20];
+  /*  for ( int x = 1; x <= 200 ; x++ ){
+      Lcd_cursor(&lcd, 1, 7);
+      Lcd_int(&lcd, x);
+      HAL_Delay (1000);
+    }*/
+    MX_ADC1_Init();
+  /* USER CODE END 2 */
 
   /* Infinite loop */
-  while (1)
-  {
-    HAL_ADC_Start(&hadc1);
-    HAL_ADC_PollForConversion(&hadc1, 100);
-    adc_value = HAL_ADC_GetValue(&hadc1);
-    HAL_ADC_Stop(&hadc1);
+  /* USER CODE BEGIN WHILE */
+    while (1)
+    {
+    Lcd_clear(&lcd);
 
-    // Assuming that the pulse sensor provides an analog signal,
-    // convert the analog value to a pulse rate.
-    // Adjust this calculation based on the specifications of your pulse sensor.
-    pulse_rate = map(adc_value, 0, 4095, 30, 220); // Adjust the range accordingly
+    Lcd_cursor(&lcd, 0, 1);
+    Lcd_string(&lcd, "Heart Rate: ");
+      HAL_ADC_Start(&hadc1);
+      HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
+      adcValue = HAL_ADC_GetValue(&hadc1);
 
-    sprintf(pulse_rate_str, "%d\n", pulse_rate);
+      // Convert ADC value to heart rate (adjust this based on sensor characteristics)
+      int heartRate = convertToHeartRate(adcValue);
 
-    lcd_set_cursor(0, 0);
-    lcd_write_string("Heart Rate: ");
-    lcd_set_cursor(1, 0);
-    lcd_write_string(pulse_rate_str);
-    lcd_set_cursor(1, 2);
-    lcd_send_data('bpm'); // Display beats per minute
+      // Display the heart rate on the LCD
+      Lcd_cursor(&lcd, 1, 7);
+      Lcd_int(&lcd, heartRate);
+
+      // Delay or other processing...
+      HAL_Delay(1000);//changed from 1000 to 1500
+    }
   }
-}
 
-// Function to map a value from one range to another
+int convertToHeartRate(uint16_t adcValue)
+{
+  // Example conversion, adjust based on sensor characteristics
+  // This is a simple linear conversion for demonstration purposes
+  // You need to calibrate this based on your sensor's behavior
+  int heartRate = (adcValue * 100) / 4095;
+
+  return heartRate;
+}
 
 /**
   * @brief System Clock Configuration
@@ -165,9 +169,9 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 8;
-  RCC_OscInitStruct.PLL.PLLN = 72;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLM = 16;
+  RCC_OscInitStruct.PLL.PLLN = 336;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV4;
   RCC_OscInitStruct.PLL.PLLQ = 7;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
@@ -210,7 +214,7 @@ static void MX_ADC1_Init(void)
   /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
   */
   hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.ScanConvMode = DISABLE;
   hadc1.Init.ContinuousConvMode = DISABLE;
@@ -238,37 +242,6 @@ static void MX_ADC1_Init(void)
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
-
-}
-
-/**
-  * @brief I2C1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_I2C1_Init(void)
-{
-
-  /* USER CODE BEGIN I2C1_Init 0 */
-  /* USER CODE END I2C1_Init 0 */
-
-  /* USER CODE BEGIN I2C1_Init 1 */
-  /* USER CODE END I2C1_Init 1 */
-  hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 100000;
-  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
-  hi2c1.Init.OwnAddress1 = 0;
-  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c1.Init.OwnAddress2 = 0;
-  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2C1_Init 2 */
-  /* USER CODE END I2C1_Init 2 */
 
 }
 
@@ -323,7 +296,13 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, LD2_Pin|GPIO_PIN_6|GPIO_PIN_7, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -331,12 +310,26 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : LD2_Pin */
-  GPIO_InitStruct.Pin = LD2_Pin;
+  /*Configure GPIO pins : LD2_Pin PA6 PA7 */
+  GPIO_InitStruct.Pin = LD2_Pin|GPIO_PIN_6|GPIO_PIN_7;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PC7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_7;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PB4 PB5 PB6 */
+  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
@@ -372,8 +365,8 @@ void Error_Handler(void)
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
-/* User can add his own implementation to report the file name and line number,
-   ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* User can add his own implementation to report the file name and line number,
+     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
